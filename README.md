@@ -1,4 +1,4 @@
-# openapi
+# openapi-runtime
 
 Support package for OpenAPI-generated Toit libraries.
 

@@ -1,4 +1,4 @@
-name: openapi
+name: openapi-runtime
 description: Support package for openapi generated Toit libraries.
 environment:
   sdk: ^2.0.0-alpha.192
