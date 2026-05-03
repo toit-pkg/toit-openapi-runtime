@@ -1,0 +1,8 @@
+name: openapi
+description: Support package for openapi generated Toit libraries.
+environment:
+  sdk: ^2.0.0-alpha.192
+dependencies:
+  http:
+    url: github.com/toitlang/pkg-http
+    version: ^2.9.0
