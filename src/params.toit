@@ -16,7 +16,9 @@ class QueryParam:
 
   url-encode -> string:
     encoded-key := url-encoding.encode key
-    encoded-value := url-encoding.encode value
+    // The encoder only accepts strings/byte-arrays. Stringify primitive
+    //   values (int, num, bool) so that e.g. `?limit=5` works.
+    encoded-value := url-encoding.encode "$value"
     return "$encoded-key=$encoded-value"
 
 encode-path-param -> string
