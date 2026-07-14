@@ -31,6 +31,12 @@ class ApiClient:
   add-default-header key/string value/string:
     default-header-map_[key] = value
 
+  /**
+  Invokes the API endpoint at $path.
+
+  When $authentication is given it takes precedence over the client-level
+    authentication passed to the constructor.
+  */
   invoke-api -> http.Response
       --path/string
       --method/string
@@ -39,13 +45,15 @@ class ApiClient:
       --header-params/Headers
       --form-params/Map  // of string to string
       --content-type/string?
+      --authentication/Authentication?=null
   :
     if content-type == "application/x-www-form-urlencoded":
       if body: throw "body and form-params cannot be used together"
       body = serialize-form_ form-params
 
-    if authentication:
-      authentication.apply-to-params
+    effective-authentication := authentication or this.authentication
+    if effective-authentication:
+      effective-authentication.apply-to-params
           --query-params=query-params
           --header-params=header-params
 
