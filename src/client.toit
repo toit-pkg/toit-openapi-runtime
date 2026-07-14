@@ -61,7 +61,6 @@ class ApiClient:
         ? ""
         : "?$(url-encoded-query-params.join "&")"
     uri := "$base-path$path$query-string"
-    print "URI: $uri  METHOD: $method headers: $header-params"
 
     request := client_.new-request method
         --uri=uri
