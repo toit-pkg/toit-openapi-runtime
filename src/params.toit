@@ -21,17 +21,27 @@ class QueryParam:
     encoded-value := url-encoding.encode "$value"
     return "$encoded-key=$encoded-value"
 
+/**
+Encodes a path parameter using the given $style ("simple" when null,
+  "matrix" or "label").
+
+When $url-encode is true (the default), the individual values are
+  percent-encoded so the result can be substituted into a path segment
+  verbatim. The style separators (';', '=', ',', '.') are not encoded.
+*/
 encode-path-param -> string
     key/string
     value/any
     --style/string?=null
     --explode/bool=false
+    --url-encode/bool=true
 :
   if not style or style == "simple":
-    return encode-param-simple_ value --explode=explode
+    return encode-param-simple_ value --explode=explode --url-encode=url-encode
 
   if style == "matrix" or style == "label":
     return encode-param-matrix-or-label_ key value --style=style --explode=explode
+        --url-encode=url-encode
 
   throw "UNIMPLEMENTED"
 
@@ -59,7 +69,7 @@ encode-header-param -> none
     --style/string?=null
     --explode/bool=false
 :
-  headers.add key (encode-param-simple_ value --explode=explode)
+  headers.add key (encode-param-simple_ value --explode=explode --no-url-encode)
 
 encode-query-param-form_ key/string value/any --explode/bool -> List:
   if value is List:
@@ -139,12 +149,20 @@ encode-query-param-deep-object_ key/string value/any --explode/bool -> List:
     result.add param
   return result
 
-encode-param-simple_ value/any --explode/bool -> string:
+/**
+Stringifies a primitive $value, percent-encoding the result when
+  $url-encode is true.
+*/
+stringify-value_ value/any --url-encode/bool -> string:
+  result := "$value"
+  return url-encode ? url-encoding.encode result : result
+
+encode-param-simple_ value/any --explode/bool --url-encode/bool -> string:
   if value is List:
     value-list := value as List
     if not (value-list.every: | item | is-primitive-type item):
       throw "UNIMPLEMENTED"
-    items-as-strings := value-list.map: "$it"
+    items-as-strings := value-list.map: stringify-value_ it --url-encode=url-encode
     return items-as-strings.join ","
 
   if value is OpenapiObject:
@@ -155,31 +173,33 @@ encode-param-simple_ value/any --explode/bool -> string:
     entries-as-strings := []
     value-map.do: | k/string v |
       if not is-primitive-type v: throw "UNIMPLEMENTED"
+      k-string := stringify-value_ k --url-encode=url-encode
+      v-string := stringify-value_ v --url-encode=url-encode
       if explode:
-        entries-as-strings.add "$k=$v"
+        entries-as-strings.add "$k-string=$v-string"
       else:
-        entries-as-strings.add k
-        entries-as-strings.add "$v"
+        entries-as-strings.add k-string
+        entries-as-strings.add v-string
     return entries-as-strings.join ","
 
   if not is-primitive-type value:
     throw "UNIMPLEMENTED"
 
-  return "$value"
+  return stringify-value_ value --url-encode=url-encode
 
-encode-param-matrix-or-label_ key/string value/any --explode/bool --style/string -> string:
+encode-param-matrix-or-label_ key/string value/any --explode/bool --style/string --url-encode/bool -> string:
   if value == null: return style == "matrix" ? ";$key" : "."
 
   prefix := style == "matrix" ? ";$key=" : "."
 
   if is-primitive-type value:
-    return "$prefix$value"
+    return "$prefix$(stringify-value_ value --url-encode=url-encode)"
 
   if value is List:
     value-list := value as List
     if not (value-list.every: | item | is-primitive-type item):
       throw "UNIMPLEMENTED"
-    items-as-strings := value-list.map: "$it"
+    items-as-strings := value-list.map: stringify-value_ it --url-encode=url-encode
     if style == "matrix" and not explode:
       joined := items-as-strings.join ","
       return "$prefix$joined"
@@ -194,29 +214,25 @@ encode-param-matrix-or-label_ key/string value/any --explode/bool --style/string
     value-map := value as Map
     if not (value-map.every: | k/string v | is-primitive-type v):
       throw "UNIMPLEMENTED"
+    entry-strings := []
+    value-map.do: | k/string v |
+      entry-strings.add (stringify-value_ k --url-encode=url-encode)
+      entry-strings.add (stringify-value_ v --url-encode=url-encode)
     if style == "matrix" and not explode:
-      entries-as-strings := []
-      value-map.do: | k/string v |
-        entries-as-strings.add k
-        entries-as-strings.add "$v"
-      joined := entries-as-strings.join ","
+      joined := entry-strings.join ","
       return "$prefix$joined"
     if style == "matrix" and explode:
       // We lose the key and just prefix each key-value pair.
       parts := []
-      value-map.do: | k/string v |
-        parts.add ";$k=$v"
+      (entry-strings.size / 2).repeat: | i/int |
+        parts.add ";$(entry-strings[2 * i])=$(entry-strings[2 * i + 1])"
       return parts.join ""
     if style == "label" and not explode:
-      entries-as-strings := []
-      value-map.do: | k/string v |
-        entries-as-strings.add k
-        entries-as-strings.add "$v"
-      return prefix + (entries-as-strings.join ".")
+      return prefix + (entry-strings.join ".")
     if style == "label" and explode:
       parts := []
-      value-map.do: | k/string v |
-        parts.add ".$k=$v"
+      (entry-strings.size / 2).repeat: | i/int |
+        parts.add ".$(entry-strings[2 * i])=$(entry-strings[2 * i + 1])"
       return parts.join ""
 
   throw "UNIMPLEMENTED"
