@@ -70,7 +70,7 @@ encode-query-param-form_ key/string value/any --explode/bool -> List:
         param := QueryParam key item
     if not (value.every: | item | is-primitive-type item):
       throw "UNIMPLEMENTED"
-    items-as-string := value-list.map: "$it.to-string"
+    items-as-string := value-list.map: "$it"
     joined := items-as-string.join ","
     return [QueryParam key joined]
 
@@ -104,7 +104,7 @@ encode-query-param-delimited_ key/string value/any --style/string --explode/bool
     value-list := value as List
     if not (value-list.every: | item | is-primitive-type item):
       throw "UNIMPLEMENTED"
-    items-as-strings := value-list.map: "$it.to-string"
+    items-as-strings := value-list.map: "$it"
     joined := items-as-strings.join delimiter
     return [QueryParam key joined]
 
@@ -117,7 +117,7 @@ encode-query-param-delimited_ key/string value/any --style/string --explode/bool
     value-map.do: | k/string v |
       if not is-primitive-type v: throw "UNIMPLEMENTED"
       entries-as-strings.add k
-      entries-as-strings.add "$v.to-string"
+      entries-as-strings.add "$v"
     joined := entries-as-strings.join delimiter
     return [QueryParam key joined]
 
@@ -134,7 +134,7 @@ encode-query-param-deep-object_ key/string value/any --explode/bool -> List:
   result := []
   value-map.do: | k/string v |
     if not is-primitive-type v: throw "UNIMPLEMENTED"
-    param-key := "$(key.to-string)[$k]"
+    param-key := "$(key)[$k]"
     param := QueryParam param-key v
     result.add param
   return result
@@ -144,7 +144,7 @@ encode-param-simple_ value/any --explode/bool -> string:
     value-list := value as List
     if not (value-list.every: | item | is-primitive-type item):
       throw "UNIMPLEMENTED"
-    items-as-strings := value-list.map: "$it.to-string"
+    items-as-strings := value-list.map: "$it"
     return items-as-strings.join ","
 
   if value is OpenapiObject:
@@ -156,30 +156,30 @@ encode-param-simple_ value/any --explode/bool -> string:
     value-map.do: | k/string v |
       if not is-primitive-type v: throw "UNIMPLEMENTED"
       if explode:
-        entries-as-strings.add "$k=$v.to-string"
+        entries-as-strings.add "$k=$v"
       else:
         entries-as-strings.add k
-        entries-as-strings.add "$v.to-string"
+        entries-as-strings.add "$v"
     return entries-as-strings.join ","
 
   if not is-primitive-type value:
     throw "UNIMPLEMENTED"
 
-  return "$value.to-string"
+  return "$value"
 
 encode-param-matrix-or-label_ key/string value/any --explode/bool --style/string -> string:
-  if value == null: style == "matrix" ? ";$key" : "."
+  if value == null: return style == "matrix" ? ";$key" : "."
 
   prefix := style == "matrix" ? ";$key=" : "."
 
   if is-primitive-type value:
-    return "$prefix$value.to-string"
+    return "$prefix$value"
 
   if value is List:
     value-list := value as List
     if not (value-list.every: | item | is-primitive-type item):
       throw "UNIMPLEMENTED"
-    items-as-strings := value-list.map: "$it.to-string"
+    items-as-strings := value-list.map: "$it"
     if style == "matrix" and not explode:
       joined := items-as-strings.join ","
       return "$prefix$joined"
@@ -198,25 +198,25 @@ encode-param-matrix-or-label_ key/string value/any --explode/bool --style/string
       entries-as-strings := []
       value-map.do: | k/string v |
         entries-as-strings.add k
-        entries-as-strings.add "$v.to-string"
+        entries-as-strings.add "$v"
       joined := entries-as-strings.join ","
       return "$prefix$joined"
     if style == "matrix" and explode:
-      // We lose the key and just prefix each key-value pair
+      // We lose the key and just prefix each key-value pair.
       parts := []
       value-map.do: | k/string v |
-        parts.add ";$k,$v.to-string"
+        parts.add ";$k=$v"
       return parts.join ""
     if style == "label" and not explode:
       entries-as-strings := []
       value-map.do: | k/string v |
         entries-as-strings.add k
-        entries-as-strings.add "$v.to-string"
-      return entries-as-strings.join "."
+        entries-as-strings.add "$v"
+      return prefix + (entries-as-strings.join ".")
     if style == "label" and explode:
       parts := []
       value-map.do: | k/string v |
-        parts.add ".$k=$v.to-string"
+        parts.add ".$k=$v"
       return parts.join ""
 
   throw "UNIMPLEMENTED"
